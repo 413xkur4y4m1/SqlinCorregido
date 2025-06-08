@@ -8,7 +8,70 @@ const auth = {
         isAuthenticated: false,
         isAdmin: false,
         user: null,
-        initialized: false
+        initialized: false,
+        provider: null
+    },
+
+    // Recover auth state from storage
+    loadAuthState() {
+        try {
+            // Try localStorage first for persistence
+            let userData = localStorage.getItem('userData');
+            let isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+            
+            // Fallback to sessionStorage
+            if (!isAuthenticated || !userData) {
+                userData = sessionStorage.getItem('userData');
+                isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
+            }
+            
+            if (isAuthenticated && userData) {
+                const user = JSON.parse(userData);
+                this.authState = {
+                    isAuthenticated: true,
+                    user: user,
+                    isAdmin: false,
+                    initialized: true,
+                    provider: user.provider || 'manual'
+                };
+
+                // Ensure both storages are in sync
+                sessionStorage.setItem('isAuthenticated', 'true');
+                sessionStorage.setItem('userData', JSON.stringify(user));
+                localStorage.setItem('isAuthenticated', 'true');
+                localStorage.setItem('userData', JSON.stringify(user));
+
+                return true;
+            }
+        } catch (e) {
+            console.error('Error loading auth state:', e);
+            this.cleanupAuthState();
+        }
+        return false;
+    },
+
+    // Clean up auth state
+    cleanupAuthState() {
+        this.authState = {
+            isAuthenticated: false,
+            isAdmin: false,
+            user: null,
+            initialized: true,
+            provider: null
+        };
+        // Clean up all storage
+        sessionStorage.removeItem('isAuthenticated');
+        sessionStorage.removeItem('userEmail');
+        sessionStorage.removeItem('userData');
+        localStorage.removeItem('isAuthenticated');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userData');
+
+        // Emit auth change event
+        const authChangeEvent = new CustomEvent('authStateChanged', {
+            detail: { user: null }
+        });
+        window.dispatchEvent(authChangeEvent);
     },
 
     // Initialize auth system
@@ -16,38 +79,49 @@ const auth = {
         if (this.authInitialized) return;
         
         try {
-            // Wait for Firebase to be ready
             if (typeof firebase === 'undefined' || !firebase.auth) {
                 throw new Error('Firebase Auth not available');
             }
 
-            // Set up persistence
+            // Try to load manual auth state first
+            if (this.loadAuthState()) {
+                this.authInitialized = true;
+                return;
+            }
+
+            // Set up persistence for Firebase Auth
             await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
             
-            // Setup auth state listener
             firebase.auth().onAuthStateChanged(async (user) => {
-                this.authState.user = user;
-                this.authState.isAuthenticated = !!user;
-                this.authState.initialized = true;
-                
                 if (user) {
-                    // Update user state in sessionStorage
+                    // If there's a Firebase user, update state
+                    this.authState = {
+                        isAuthenticated: true,
+                        user: {
+                            uid: user.uid,
+                            email: user.email,
+                            displayName: user.displayName,
+                            provider: user.providerData[0]?.providerId || 'microsoft',
+                            matricula: user.email.split('@')[0],
+                            photoURL: user.photoURL
+                        },
+                        isAdmin: await this.checkIfAdmin(),
+                        initialized: true,
+                        provider: 'microsoft'
+                    };
+                    
                     sessionStorage.setItem('isAuthenticated', 'true');
                     sessionStorage.setItem('userEmail', user.email);
-                    
-                    // Check admin status
-                    this.authState.isAdmin = await this.checkIfAdmin();
+                    sessionStorage.setItem('userData', JSON.stringify(this.authState.user));
                 } else {
-                    // Clear session storage
-                    sessionStorage.removeItem('isAuthenticated');
-                    sessionStorage.removeItem('userEmail');
-                    this.authState.isAdmin = false;
+                    this.cleanupAuthState();
                 }
             });
 
             this.authInitialized = true;
         } catch (error) {
             console.error('Auth initialization error:', error);
+            this.cleanupAuthState();
             throw error;
         }
     },
@@ -203,27 +277,90 @@ const auth = {
         } finally {
             this.isRedirecting = false;
         }
-    },
-
-    // Login con matrícula y contraseña
+    },    // Login con matrícula y contraseña
     async handleLoginWithMatricula(matricula, password) {
         if (this.isRedirecting) return;
         this.isRedirecting = true;
 
         try {
-            const email = `${matricula}@ulsa.mx`;
-            
-            // Verificar métodos de inicio de sesión disponibles
-            const methods = await this.getSignInMethodsForEmail(email);
-            
-            if (methods.length > 0 && !methods.includes('password')) {
-                const providerName = this.getProviderName(methods[0]);
-                throw new Error(`Esta cuenta está registrada con ${providerName}. Por favor, usa ese método para iniciar sesión.`);
+            // Clean up any existing auth state first
+            this.cleanupAuthState();
+
+            // Search for student by matricula
+            const alumnosRef = firebase.database().ref('alumno');
+            const snapshot = await alumnosRef
+                .orderByChild('matricula')
+                .equalTo(matricula)
+                .once('value');
+
+            if (!snapshot.exists()) {
+                throw new Error('Matrícula no encontrada');
             }
 
-            const result = await firebase.auth().signInWithEmailAndPassword(email, password);
-            return result;
+            // Get student data
+            let alumnoKey = null;
+            let alumno = null;
+            snapshot.forEach((childSnapshot) => {
+                alumnoKey = childSnapshot.key;
+                alumno = childSnapshot.val();
+                return true;
+            });
+
+            if (!alumno || String(alumno.password) !== String(password)) {
+                throw new Error('Matrícula o contraseña incorrectos');
+            }
+
+            // Create user object
+            const userData = {
+                uid: alumnoKey,
+                matricula: alumno.matricula,
+                email: alumno.correo || `${matricula}@ulsa.mx`,
+                displayName: alumno.nombre,
+                nombre: alumno.nombre,
+                apellido_p: alumno.apellido_p,
+                apellido_m: alumno.apellido_m,
+                carrera: alumno.carrera,
+                provider: 'manual'
+            };
+
+            // Set auth state
+            this.authState = {
+                isAuthenticated: true,
+                user: userData,
+                isAdmin: false,
+                initialized: true,
+                provider: 'manual'
+            };
+
+            // Update last access
+            try {
+                await alumnosRef.child(alumnoKey).update({
+                    ultimo_acceso: new Date().toISOString()
+                });
+            } catch (error) {
+                console.warn('Error updating last access:', error);
+            }
+
+            // Store auth state in both storages for persistence
+            sessionStorage.setItem('isAuthenticated', 'true');
+            sessionStorage.setItem('userEmail', userData.email);
+            sessionStorage.setItem('userData', JSON.stringify(userData));
+            localStorage.setItem('isAuthenticated', 'true');
+            localStorage.setItem('userEmail', userData.email);
+            localStorage.setItem('userData', JSON.stringify(userData));
+
+            // Emit auth change event
+            const authChangeEvent = new CustomEvent('authStateChanged', {
+                detail: { user: userData }
+            });
+            window.dispatchEvent(authChangeEvent);
+
+            // Redirect to prestamos page
+            window.location.href = 'prestamos.html';
+
         } catch (error) {
+            console.error('Login error:', error);
+            this.cleanupAuthState();
             throw error;
         } finally {
             this.isRedirecting = false;
@@ -389,7 +526,7 @@ firebase.auth().onAuthStateChanged(async (user) => {
                     window.location.href = 'sistema-prestamos.html';
                 }
             }
-        } else if (requiresAuth() && location.hostname !== "localhost") {
+        } else if (typeof requiresAuth !== 'undefined' && requiresAuth() && location.hostname !== "localhost") {
             window.location.href = 'sistema-prestamos.html';
         }    }
 });

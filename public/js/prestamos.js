@@ -46,6 +46,13 @@ function logout() {
   });
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
+  }
+});
+
 document.getElementById('formPrestamo').addEventListener('submit', async (evt) => {
   evt.preventDefault();
   if (!currentUser) {
@@ -58,10 +65,10 @@ document.getElementById('formPrestamo').addEventListener('submit', async (evt) =
   const materia = document.getElementById('materia').value;
 
   try {
-    // Get student data from email
+    // Get student data from correo
     const alumnosRef = firebase.database().ref('alumno');
     const alumnoSnapshot = await alumnosRef
-      .orderByChild('email')
+      .orderByChild('correo')
       .equalTo(currentUser.email)
       .once('value');
     

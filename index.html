@@ -72,41 +72,64 @@
                                     <li><a class="dropdown-item" href="adeudo.html">Generar adeudo manual</a></li>
                                 </ul>
                             </li>
-                        </ul>                    <div class="user-menu">
-                            <a href="#" class="navbar-icon bi-person"></a>
-                            <div class="dropdown-content" id="userDropdown">
-                                <!-- Se actualiza dinámicamente con JS -->
-                                <a href="sistema-prestamos.html">Iniciar sesión</a>
-                                <a href="sistema-prestamos.html#register">Registrarse</a>
-                            </div>
+                        </ul>                    <div class="user-menu" id="userMenu">
+                            <!-- Se actualiza dinámicamente con JS -->
                         </div>
-                          <script>
-                        document.addEventListener('DOMContentLoaded', function() {
-                            // Asegurarse de que Firebase esté inicializado
-                            if (typeof firebase !== 'undefined') {
-                                // Actualizar menú de usuario según autenticación
-                                firebase.auth().onAuthStateChanged((user) => {
-                                    const dropdown = document.getElementById('userDropdown');
-                                    if (dropdown) {
-                                        if (user) {
-                                            dropdown.innerHTML = `
-                                                <div class="user-info">Hola, ${user.displayName || user.email}</div>
-                                                <a href="prestamos.html">Mis Préstamos</a>
-                                                <a href="#" onclick="handleSignOut(); return false;">Cerrar sesión</a>
-                                            `;
-                                        } else {
-                                            dropdown.innerHTML = `
-                                                <a href="sistema-prestamos.html">Iniciar sesión</a>
-                                                <a href="sistema-prestamos.html#register">Registrarse</a>
-                                            `;
-                                        }
-                                    }
-                                });
-                            } else {
-                                console.error('Firebase no está inicializado correctamente');
-                            }
-                        });
-                        </script>
+                        <script>
+document.addEventListener('DOMContentLoaded', async function() {
+    const isAdmin = await checkIfAdmin();
+    const userMenu = document.getElementById('userMenu');
+    function getManualUser() {
+        if (sessionStorage.getItem('isAuthenticated') === 'true' && window.auth && window.auth.authState && window.auth.authState.user) {
+            return window.auth.authState.user;
+        }
+        return null;
+    }
+    function renderUserMenu(user) {
+        if (user) {
+            userMenu.innerHTML = `<a href="#" class="navbar-icon bi-person"></a>
+            <div class="dropdown-content" id="userDropdown">
+                <div class="user-info">Hola, ${user.displayName || user.nombre || user.email}</div>
+                <a href="prestamos.html">Mis Préstamos</a>
+                <a href="#" onclick="handleSignOut(); return false;">Cerrar sesión</a>
+            </div>`;
+        } else {
+            userMenu.innerHTML = `<a href="#" class="navbar-icon bi-person"></a>
+            <div class="dropdown-content" id="userDropdown">
+                <a href="sistema-prestamos.html">Iniciar sesión</a>
+                <a href="sistema-prestamos.html#register">Registrarse</a>
+            </div>`;
+        }
+    }
+    if (isAdmin) {
+        userMenu.innerHTML = '<span class="admin-label">Admin</span>';
+        document.querySelectorAll('.admin-only').forEach(e => e.style.display = 'block');
+    } else {
+        // Listen for Firebase Auth changes
+        firebase.auth().onAuthStateChanged((user) => {
+            if (user) {
+                renderUserMenu(user);
+            } else {
+                // Check for manual login
+                const manualUser = getManualUser();
+                if (manualUser) {
+                    renderUserMenu(manualUser);
+                } else {
+                    renderUserMenu(null);
+                }
+            }
+        });
+        // Fallback: if already logged in manually, render immediately
+        if (!firebase.auth().currentUser) {
+            const manualUser = getManualUser();
+            if (manualUser) {
+                renderUserMenu(manualUser);
+            }
+        }
+        document.querySelectorAll('.admin-only').forEach(e => e.style.display = 'none');
+    }
+});
+</script>
                     </div>
                 </div>
             </nav>
@@ -450,12 +473,64 @@
                         const currentPath = window.location.pathname;
                         const requiresAuth = protectedPages.some(page => currentPath.endsWith(page));
                         
-                        if (requiresAuth && !user) {
+                        if (requiresAuth && !user && !isManualUserAuthenticated()) {
                             window.location.href = 'sistema-prestamos.html';
                         }
                     });
                 }
             });
         </script>
+        <script>
+function handleSignOut() {
+    // Limpiar estado de autenticación
+    sessionStorage.removeItem('isAuthenticated');
+    sessionStorage.removeItem('userEmail');
+    sessionStorage.removeItem('userData');
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userData');
+
+    // Si hay un usuario de Firebase, hacer logout
+    if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+        firebase.auth().signOut().then(() => {
+            window.location.href = 'sistema-prestamos.html';
+        }).catch((error) => {
+            console.error('Error en cierre de sesión:', error);
+            window.location.href = 'sistema-prestamos.html';
+        });
+    } else {
+        // Si era login manual, solo redirigir
+        window.location.href = 'sistema-prestamos.html';
+    }
+}
+</script>
+<script>
+// Protege páginas que requieren autenticación, permitiendo login manual
+function isManualUserAuthenticated() {
+    return sessionStorage.getItem('isAuthenticated') === 'true' && window.auth && window.auth.authState && window.auth.authState.user;
+}
+document.addEventListener('DOMContentLoaded', async () => {
+    const isAdmin = await checkIfAdmin();
+    if (!isAdmin) {
+        const protectedPages = [
+            'prestamos.html',
+            'lista-prestamos.html',
+            'lista-adeudos.html'
+        ];
+        const currentPath = window.location.pathname;
+        const requiresAuth = protectedPages.some(page => currentPath.endsWith(page));
+        // Check immediately on load
+        if (requiresAuth && !firebase.auth().currentUser && !isManualUserAuthenticated()) {
+            window.location.href = 'sistema-prestamos.html';
+        }
+        // Also listen for auth state changes
+        firebase.auth().onAuthStateChanged((user) => {
+            if (requiresAuth && !user && !isManualUserAuthenticated()) {
+                window.location.href = 'sistema-prestamos.html';
+            }
+        });
+    }
+});
+</script>
     </body>
 </html>

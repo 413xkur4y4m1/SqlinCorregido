@@ -1,47 +1,59 @@
-// Script para manejar la redirección basada en fingerprint en sistema-prestamos.html
+// Script to handle redirection based on fingerprint in sistema-prestamos.html
 document.addEventListener('DOMContentLoaded', async () => {
-    // Esperar brevemente para asegurar que Firebase Auth esté inicializado
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
+    // Remove artificial wait and show login interface immediately if not authenticated
     const isAdmin = await checkIfAdmin();
-    
-    // Verificar el estado de autenticación actual
     const currentUser = firebase.auth().currentUser;
-    let isValidAuth = false;
-
-    if (currentUser) {
-        try {
-            await currentUser.getIdToken(true);
-            isValidAuth = true;
-        } catch (error) {
-            console.error('Error validating token:', error);
-        }
-    }
+    const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
+    const manualUserData = sessionStorage.getItem('userData');
 
     if (isAdmin) {
-        // Si es admin, redirigir directamente a la página de administración
         window.location.href = 'lista-prestamos.html';
-    } else if (isValidAuth) {
-        // Si ya está autenticado, redirigir a la página de préstamos
-        sessionStorage.setItem('isAuthenticated', 'true');
-        sessionStorage.setItem('userEmail', currentUser.email);
-        window.location.href = 'prestamos.html';
-    } else {
-        // Si no está autenticado, mostrar la interfaz de login
-        document.querySelector('.section').style.display = 'block';
-        
-        // Configurar listener de autenticación
-        firebase.auth().onAuthStateChanged(async (user) => {
-            if (user) {
-                try {
-                    await user.getIdToken(true);
-                    sessionStorage.setItem('isAuthenticated', 'true');
-                    sessionStorage.setItem('userEmail', user.email);
-                    window.location.href = 'prestamos.html';
-                } catch (error) {
-                    console.error('Error validating token after login:', error);
+    } else if (currentUser || (isAuthenticated && manualUserData)) {
+        // Validate existing session
+        try {
+            if (currentUser) {
+                await currentUser.getIdToken(true);
+            } else {
+                // Verify manual user still exists in database
+                const userData = JSON.parse(manualUserData);
+                const snapshot = await firebase.database()
+                    .ref('alumno')
+                    .orderByChild('matricula')
+                    .equalTo(userData.matricula)
+                    .once('value');
+
+                if (!snapshot.exists()) {
+                    throw new Error('Invalid session');
                 }
             }
-        });
+
+            // Valid session, redirect to prestamos
+            window.location.href = 'prestamos.html';
+        } catch (error) {
+            console.error('Session validation failed:', error);
+            // Clean up invalid session
+            window.auth?.cleanupAuthState();
+            // Show login interface
+            document.querySelector('.section').style.display = 'block';
+        }
+    } else {
+        // Show login interface immediately
+        document.querySelector('.section').style.display = 'block';
     }
+
+    // Listen for successful login
+    firebase.auth().onAuthStateChanged(async (user) => {
+        if (user) {
+            try {
+                await user.getIdToken(true);
+                sessionStorage.setItem('isAuthenticated', 'true');
+                sessionStorage.setItem('userEmail', user.email);
+                window.location.href = 'prestamos.html';
+            } catch (error) {
+                console.error('Token validation failed:', error);
+                // Clean up invalid session
+                window.auth?.cleanupAuthState();
+            }
+        }
+    });
 });

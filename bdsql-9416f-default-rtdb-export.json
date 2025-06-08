@@ -1,0 +1,156 @@
+{
+  "adeudos": {
+    "ejemplo": {
+      "descripcion": "Colegiatura Enero",
+      "estado": "pagado",
+      "fecha_actualizacion": "2025-05-29T17:15:16.217Z",
+      "fecha_adeudo": "2024-01-01",
+      "monto": 2500,
+      "numero": 1
+    }
+  },
+  "administrador": {
+    "admin1": {
+      "apellido_m": "García",
+      "apellido_p": "López",
+      "contraseña": "admin123",
+      "correo_electronico": "admin@escuela.edu",
+      "nombre": "Juan"
+    }
+  },
+  "alumno": {
+    "244064": {
+      "apellido_m": "rios",
+      "apellido_p": "cortez",
+      "correo": "244064@ulsaneza.edu.mx",
+      "fecha_registro": "2025-06-06T16:29:34.375Z",
+      "matricula": "244064",
+      "nombre": "giovanni",
+      "password": "123457",
+      "provider": "password",
+      "ultimo_acceso": "2025-06-06T16:43:01.277Z"
+    },
+    "244512": {
+      "correo": "244512@ulsaneza.edu.mx",
+      "fecha_registro": "2025-06-05T16:26:24.605Z",
+      "id_microsoft": "qjFXCWg2SAZTdZRRVXsZ4sUHyUN2",
+      "matricula": "244512",
+      "nombre": "KEVIN SANDOVAL NIEVES",
+      "provider": "microsoft.com",
+      "ultimo_acceso": "2025-06-05T16:26:42.150Z"
+    },
+    "244650": {
+      "correo": "244650@ulsaneza.edu.mx",
+      "fecha_registro": "2025-06-05T02:00:38.918Z",
+      "id_microsoft": "L53T9fl1fCgLDODDNZJyj1AJYNn2",
+      "matricula": "244650",
+      "nombre": "DANIEL ALEJANDRO PEREZ ESQUIVEL",
+      "provider": "microsoft.com",
+      "ultimo_acceso": "2025-06-07T20:07:04.240Z"
+    },
+    "PigvK0B7PtQX8xUB11PRzs9I8D03": {
+      "apellido_m": "Sanchez",
+      "apellido_p": "Meza",
+      "carrera": "ISCC",
+      "correo": "243524@ulsaneza.edu.mx",
+      "fecha_alta": "2025-05-28",
+      "fecha_registro": "2025-05-28T20:02:09.753Z",
+      "matricula": 243524,
+      "nombre": "Daniel"
+    },
+    "TaF6Ds85qCQSP83sfpUhfml5Lz72": {
+      "apellido_m": "Moncada",
+      "apellido_p": "Aparicio",
+      "carrera": "ISSC",
+      "correo": "243876@ulsaneza.edu.mx",
+      "fecha_alta": "2025-05-29",
+      "fecha_registro": "2025-05-29T16:02:36.441Z",
+      "matricula": 243876,
+      "nombre": "Cristian"
+    },
+    "q9Cq9prXZDaHmrE1GBK0ihadn2J3": {
+      "apellido_m": "varela",
+      "apellido_p": "flores",
+      "carrera": "ISSC",
+      "correo": "243576@ulsaneza.edu.mx",
+      "fecha_alta": "2025-05-29",
+      "fecha_registro": "2025-05-29T16:11:35.776Z",
+      "matricula": 243576,
+      "nombre": "Juan"
+    }
+  },
+  "materiales": {
+    "material1": {
+      "cantidad": 11,
+      "nombre": "Sartén Antiadherente",
+      "precio_unitario": 250,
+      "proveedor": "Cocinas Profesionales SA",
+      "tipo": "Utensilios"
+    }
+  },
+  "pago": {
+    "pago1": {
+      "fecha_pago": "2024-01-15",
+      "matricula_alumno": 2024001,
+      "metodo_pago": "Efectivo",
+      "monto": 2500,
+      "numero_adeudo": 1
+    }
+  },
+  "prestamos": {
+    "-ORNUFIs_-7vZmJQKUsA": {
+      "estado": "activo",
+      "fecha_limite": "2025-05-29",
+      "fecha_prestamo": "2025-05-28",
+      "fecha_registro": "2025-05-28T20:02:22.161Z",
+      "id_material": "material1",
+      "id_prestamo": "-ORNUFIs_-7vZmJQKUsA",
+      "matricula_alumno": 243524,
+      "nombre_alumno": "Daniel Meza",
+      "nombre_material": "Sartén Antiadherente"
+    },
+    "-ORRm-23xatWppUKfN3b": {
+      "estado": "devuelto",
+      "fecha_limite": "2025-05-30",
+      "fecha_prestamo": "2025-05-29",
+      "fecha_registro": "2025-05-29T16:02:46.808Z",
+      "id_material": "material1",
+      "id_prestamo": "-ORRm-23xatWppUKfN3b",
+      "matricula_alumno": 243876,
+      "nombre_alumno": "Cristian Aparicio",
+      "nombre_material": "Sartén Antiadherente"
+    },
+    "-ORRo3tmwjOi1Posf2bU": {
+      "estado": "devuelto",
+      "fecha_limite": "2025-05-30",
+      "fecha_prestamo": "2025-05-29",
+      "fecha_registro": "2025-05-29T16:11:50.984Z",
+      "id_material": "material1",
+      "id_prestamo": "-ORRo3tmwjOi1Posf2bU",
+      "matricula_alumno": 243576,
+      "nombre_alumno": "Juan flores",
+      "nombre_material": "Sartén Antiadherente"
+    },
+    "-OS3Q6tPYULbypvv2h_7": {
+      "estado": "devuelto",
+      "fecha_limite": "2025-06-06",
+      "fecha_registro": "2025-06-06T08:47:29.502Z",
+      "id_material": "material1",
+      "materia": "cocina1",
+      "matricula_alumno": "244650",
+      "nombre_alumno": "DANIEL ALEJANDRO PEREZ ESQUIVEL",
+      "nombre_material": "Sartén Antiadherente"
+    },
+    "-OSAHpIEb43n7R7ninYM": {
+      "estado": "devuelto",
+      "fecha_limite": "2025-06-23",
+      "fecha_prestamo": "2025-06-07",
+      "id_material": "material1",
+      "id_prestamo": "-OSAHpIEb43n7R7ninYM",
+      "materia": "cocina1",
+      "matricula_alumno": "244650",
+      "nombre_alumno": "DANIEL ALEJANDRO PEREZ ESQUIVEL undefined undefined",
+      "nombre_material": "Sartén Antiadherente"
+    }
+  }
+}

@@ -287,8 +287,8 @@
           </select>
         </div>
         <div class="form-group">
-          <label for="email">Email (simulado de Microsoft):</label>
-          <input type="email" id="email" name="email" required>
+          <label for="correo">Correo (simulado de Microsoft):</label>
+          <input type="email" id="correo" name="correo" required>
         </div>
         <button type="submit" class="submit-btn">Registrar Estudiante</button>
       </form>
@@ -350,7 +350,7 @@
       document.getElementById('apellido_p').value = 'González';
       document.getElementById('apellido_m').value = 'López';
       document.getElementById('carrera').value = 'Ingeniería en Sistemas';
-      document.getElementById('email').value = 'maria.gonzalez@student.edu.mx';
+      document.getElementById('correo').value = 'maria.gonzalez@student.edu.mx';
     }
 
     // Intentar login real
@@ -377,7 +377,7 @@
         document.getElementById('nombre').value = nameParts[0] || '';
         document.getElementById('apellido_p').value = nameParts[1] || '';
         document.getElementById('apellido_m').value = nameParts[2] || '';
-        document.getElementById('email').value = user.email || '';
+        document.getElementById('correo').value = user.email || '';
         
         showDemoForm();
         
@@ -412,7 +412,7 @@
           apellido_p: formData.get('apellido_p'),
           apellido_m: formData.get('apellido_m'),
           carrera: formData.get('carrera'),
-          email: formData.get('email'),
+          correo: formData.get('correo'),
           matricula: matricula,
           fecha_registro: fecha_registro,
           fecha_alta: fecha_alta,
@@ -431,7 +431,7 @@
           <p><strong>Matrícula:</strong> ${matricula}</p>
           <p><strong>Nombre:</strong> ${studentData.nombre} ${studentData.apellido_p} ${studentData.apellido_m}</p>
           <p><strong>Carrera:</strong> ${studentData.carrera}</p>
-          <p><strong>Email:</strong> ${studentData.email}</p>
+          <p><strong>Correo:</strong> ${studentData.correo}</p>
         `;
         
         userForm.style.display = 'none';
@@ -454,7 +454,7 @@
           apellido_p: formData.get('apellido_p'),
           apellido_m: formData.get('apellido_m'),
           carrera: formData.get('carrera'),
-          email: formData.get('email'),
+          correo: formData.get('correo'),
           matricula: matricula,
           fecha_alta: fechaAlta,
           fecha_registro: new Date().toISOString(),
@@ -472,7 +472,7 @@
             <div><strong>ID:</strong> ${studentRef.key}</div>
             <div><strong>Nombre:</strong> ${userData.nombre} ${userData.apellido_p} ${userData.apellido_m}</div>
             <div><strong>Carrera:</strong> ${userData.carrera}</div>
-            <div><strong>Email:</strong> ${userData.email}</div>
+            <div><strong>Correo:</strong> ${userData.correo}</div>
             <div><strong>Matrícula:</strong> ${userData.matricula}</div>
             <div><strong>Fecha de Alta:</strong> ${userData.fecha_alta}</div>
           </div>

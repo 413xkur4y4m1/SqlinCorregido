@@ -5,10 +5,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Ensure Firebase is initialized
     if (!firebase.apps.length) {
         console.error('Firebase not initialized');
+        window.location.href = 'sistema-prestamos.html';
         return;
     }
 
-    // Esperar a que auth.js esté inicializado
+    // Wait for auth.js initialization
     await new Promise(resolve => {
         if (window.auth) {
             resolve();
@@ -22,73 +23,99 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Ocultar contenido inicialmente con opacity para una transición suave
+    // Hide content initially with opacity for smooth transition
     document.body.style.opacity = '0';
 
     try {
-        // Esperar a que Firebase se inicialice
-        await new Promise((resolve) => {
+        // Try localStorage first for persistence
+        let userData = localStorage.getItem('userData');
+        let isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+        
+        // Fallback to sessionStorage
+        if (!isAuthenticated || !userData) {
+            userData = sessionStorage.getItem('userData');
+            isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
+        }
+
+        // Parse user data if it exists
+        let manualUserData = null;
+        if (userData) {
+            try {
+                manualUserData = JSON.parse(userData);
+            } catch (e) {
+                console.error('Error parsing user data:', e);
+            }
+        }
+
+        // Wait for Firebase auth state
+        const user = await new Promise((resolve) => {
             const unsubscribe = firebase.auth().onAuthStateChanged((user) => {
                 unsubscribe();
                 resolve(user);
             });
         });
 
-        const user = firebase.auth().currentUser;
-        const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
-
-        if (!user || !isAuthenticated) {
-            window.location.href = 'sistema-prestamos.html';
-            return;
+        // If neither Firebase nor manual auth is valid, redirect
+        if (!user && !manualUserData) {
+            throw new Error('No valid authentication found');
         }
 
-        // Verificar que el usuario existe en la base de datos
-        const matricula = user.email.split('@')[0];
+        // Verify user in database
+        const matricula = user ? user.email.split('@')[0] : manualUserData.matricula;
         const alumnoRef = firebase.database().ref('alumno/' + matricula);
         const snapshot = await alumnoRef.once('value');
 
         if (!snapshot.exists()) {
-            // Si no existe en la base de datos, crear el registro
-            await alumnoRef.set({
-                matricula: matricula,
-                nombre: user.displayName,
-                correo: user.email,
-                fecha_registro: new Date().toISOString(),
-                provider: user.providerData[0]?.providerId || 'microsoft.com',
-                ultimo_acceso: new Date().toISOString(),
-                id_microsoft: user.uid,
-                foto_perfil: user.photoURL || null
-            });
-        } else {
-            // Actualizar último acceso
-            await alumnoRef.update({
-                ultimo_acceso: new Date().toISOString()
-            });
-        }        // Si todo está bien, mostrar el contenido con transición
+            throw new Error('User not found in database');
+        }
+
+        // Update last access
+        await alumnoRef.update({
+            ultimo_acceso: new Date().toISOString()
+        });
+
+        // Update window.auth state
+        window.auth.authState = {
+            isAuthenticated: true,
+            user: user || manualUserData,
+            isAdmin: false,
+            initialized: true,
+            provider: user ? 'microsoft.com' : 'manual'
+        };
+
+        // Show content with transition
         document.body.style.opacity = '1';
         
-        // Mantener la verificación de sesión activa
+        // Keep session verification active
         firebase.auth().onAuthStateChanged((user) => {
-            if (!user) {
-                // Limpiar estados de autenticación
-                sessionStorage.removeItem('isAuthenticated');
-                sessionStorage.removeItem('userEmail');
-                localStorage.removeItem('isAuthenticated');
-                localStorage.removeItem('userEmail');
-                // Redireccionar al login
+            let isManual = false;
+            if (!user && isAuthenticated && window.auth && window.auth.authState && window.auth.authState.user) {
+                isManual = true;
+            }
+            
+            if (!user && !isManual) {
+                // Clean up auth states if no valid session exists
+                if (window.auth && window.auth.cleanupAuthState) {
+                    window.auth.cleanupAuthState();
+                }
+                // Redirect to login
                 window.location.href = 'sistema-prestamos.html';
             } else {
-                // Actualizar UI con usuario actual
-                window.auth.authState.user = user;
+                // Update UI with current user
+                window.auth.authState.user = user || window.auth.authState.user;
                 window.auth.authState.isAuthenticated = true;
                 if (typeof updateUI === 'function') {
-                    updateUI(user);
+                    updateUI(user || window.auth.authState.user);
                 }
             }
         });
 
     } catch (error) {
-        console.error('Error en la verificación:', error);
+        console.error('Auth verification error:', error);
+        // Clean up auth states
+        if (window.auth && window.auth.cleanupAuthState) {
+            window.auth.cleanupAuthState();
+        }
         window.location.href = 'sistema-prestamos.html';
     }
 });

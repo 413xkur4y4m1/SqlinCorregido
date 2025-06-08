@@ -139,7 +139,7 @@
                                                 </svg>
                                                 Continuar con Microsoft
                                             </button>
-                                            <p class="mb-0 mt-4 text-center"><a href="#0" class="link">¿Olvidaste tu contraseña?</a></p>
+                                            <p class="mb-0 mt-4 text-center"><a href="#" class="link" id="forgotPasswordLink">¿Olvidaste tu contraseña?</a></p>
                                         </div>
                                     </div>
                                 </div>
@@ -270,6 +270,20 @@
             mostrarEstado('Error al registrar: ' + error.message, 'error');
         }
     }
+
+    document.getElementById('forgotPasswordLink').addEventListener('click', function(e) {
+        e.preventDefault();
+        const email = prompt('Ingresa tu correo institucional para restablecer tu contraseña:');
+        if (email) {
+            firebase.auth().sendPasswordResetEmail(email)
+                .then(() => {
+                    alert('Se ha enviado un correo para restablecer tu contraseña.');
+                })
+                .catch(error => {
+                    alert('Error al enviar el correo de recuperación: ' + error.message);
+                });
+        }
+    });
     </script>
 </body>
 </html>

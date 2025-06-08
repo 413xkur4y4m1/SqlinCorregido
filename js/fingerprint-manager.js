@@ -49,8 +49,6 @@ async function handleAdminNavigation(action) {
                 window.location.href = 'lista-prestamos.html';
                 break;
             case 'adeudos':
-                window.location.href = 'lista-adeudos.html';
-                break;
             case 'generar':
                 window.location.href = 'adeudo.html';
                 break;

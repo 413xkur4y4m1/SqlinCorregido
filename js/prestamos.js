@@ -1,13 +1,75 @@
 // UI initialization
 let isInitialized = false;
+
+// Función para cargar materiales desde Firebase
+async function cargarMateriales() {
+    const selectMaterial = document.getElementById('objeto');
+    if (!selectMaterial) return;
+    
+    selectMaterial.innerHTML = '<option value="">Selecciona un material</option>';
+
+    try {
+        mostrarEstado('Cargando materiales...', 'loading');
+        
+        // Intentar cargar materiales de diferentes ubicaciones en la base de datos
+        const materialesSnapshots = await Promise.all([
+            firebase.database().ref('materiales').once('value'),
+            firebase.database().ref('materia11').once('value')
+        ]);
+
+        let materialesEncontrados = false;
+
+        // Primero intentar con la colección 'materiales'
+        const materiales = materialesSnapshots[0].val();
+        if (materiales) {
+            Object.entries(materiales).forEach(([id, material]) => {
+                if (material.cantidad > 0) {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = `${material.nombre} (${material.cantidad} disponibles)`;
+                    selectMaterial.appendChild(option);
+                    materialesEncontrados = true;
+                }
+            });
+        }
+
+        // Si no hay materiales en 'materiales', intentar con 'materia11'
+        const materia11 = materialesSnapshots[1].val();
+        if (materia11) {
+            const option = document.createElement('option');
+            option.value = 'materia11';
+            option.textContent = materia11.nombre;
+            selectMaterial.appendChild(option);
+            materialesEncontrados = true;
+        }
+
+        if (materialesEncontrados) {
+            mostrarEstado('Materiales cargados exitosamente', 'success');
+        } else {
+            selectMaterial.innerHTML += '<option disabled>No hay materiales disponibles</option>';
+            mostrarEstado('No hay materiales disponibles', 'warning');
+        }
+    } catch (error) {
+        console.error('Error al cargar materiales:', error);
+        selectMaterial.innerHTML += '<option disabled>Error al cargar materiales</option>';
+        mostrarEstado('Error al cargar materiales: ' + error.message, 'error');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Initializing prestamos.js...');
     // Ensure body is initially hidden
     document.body.style.opacity = '0';
     
     // Set up auth state listener
-    firebase.auth().onAuthStateChanged(user => {
+    firebase.auth().onAuthStateChanged(async user => {
         console.log('Auth state changed:', user ? 'user logged in' : 'no user');
+        
+        // Asegurarse de que window.auth esté inicializado
+        if (!window.auth) {
+            window.auth = { authState: {} };
+        }
+        
         window.auth.authState.user = user;
         
         if (!isInitialized) {
@@ -17,44 +79,87 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateUI(user);
         
-        if (user) {
-            cargarMateriales()
-                .then(() => {
-                    console.log('Materials loaded successfully');
-                    // Show page content with animation once everything is loaded
-                    document.body.classList.add('loaded');
-                })
-                .catch(error => {
-                    console.error('Error loading materials:', error);
-                    mostrarEstado('Error al cargar materiales: ' + error.message, 'error');
-                    // Still show the page even if materials fail to load
-                    document.body.classList.add('loaded');
-                });
+        if (user || (sessionStorage.getItem('isAuthenticated') === 'true' && sessionStorage.getItem('userData'))) {
+            try {
+                await cargarMateriales();
+                console.log('Materials loaded successfully');
+                document.body.classList.add('loaded');
+            } catch (error) {
+                console.error('Error loading materials:', error);
+                mostrarEstado('Error al cargar materiales: ' + error.message, 'error');
+                document.body.classList.add('loaded');
+            }
         } else {
-            // Show page content even if not authenticated
             document.body.classList.add('loaded');
         }
-    }, error => {
-        console.error('Auth state observer error:', error);
-        mostrarEstado('Error en la autenticación', 'error');
-        // Show page even on error
-        document.body.classList.add('loaded');
     });
+
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', logout);
+    }
+
+    // Registrar el manejador de eventos para el formulario de préstamo
+    const formPrestamo = document.getElementById('formPrestamo');
+    if (formPrestamo) {
+        formPrestamo.addEventListener('submit', (event) => {
+            event.preventDefault();
+            solicitarPrestamo();
+        });
+    }
 });
 
 // Update UI elements based on auth state
 function updateUI(user) {
-    if (user) {
-        document.getElementById('login').style.display = 'none';
-        document.getElementById('userInfo').style.display = 'block';
-        document.querySelector('.form-content').style.display = 'block';
-        document.getElementById('userName').textContent = user.displayName || user.email;
-        document.getElementById('userEmail').textContent = user.email;
+    // Try localStorage first for persistence
+    let userData = localStorage.getItem('userData');
+    let isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+    
+    // Fallback to sessionStorage
+    if (!isAuthenticated || !userData) {
+        userData = sessionStorage.getItem('userData');
+        isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
+    }
+
+    // Only parse userData if it exists
+    let manualUserData = null;
+    if (userData) {
+        try {
+            manualUserData = JSON.parse(userData);
+        } catch (e) {
+            console.error('Error parsing user data:', e);
+        }
+    }
+
+    // Check if authenticated either through Firebase or manual login
+    isAuthenticated = user || (isAuthenticated && manualUserData);
+
+    if (isAuthenticated) {
+        let displayName, email;
+        if (user) {
+            displayName = user.displayName || user.email;
+            email = user.email;
+        } else if (manualUserData) {
+            displayName = `${manualUserData.nombre || ''} ${manualUserData.apellido_p || ''} ${manualUserData.apellido_m || ''}`.trim();
+            displayName = displayName || manualUserData.email;
+            email = manualUserData.email;
+        }
+
+        document.getElementById('login')?.style.setProperty('display', 'none');
+        document.getElementById('userInfo')?.style.setProperty('display', 'block');
+        document.querySelector('.form-content')?.style.setProperty('display', 'block');
+        document.getElementById('qrContainer')?.style.setProperty('display', 'none');
+        
+        const userNameElement = document.getElementById('userName');
+        const userEmailElement = document.getElementById('userEmail');
+        
+        if (userNameElement) userNameElement.textContent = displayName;
+        if (userEmailElement) userEmailElement.textContent = email;
     } else {
-        document.getElementById('login').style.display = 'block';
-        document.getElementById('userInfo').style.display = 'none';
-        document.querySelector('.form-content').style.display = 'none';
-        document.getElementById('qrContainer').style.display = 'none';
+        document.getElementById('login')?.style.setProperty('display', 'block');
+        document.getElementById('userInfo')?.style.setProperty('display', 'none');
+        document.querySelector('.form-content')?.style.setProperty('display', 'none');
+        document.getElementById('qrContainer')?.style.setProperty('display', 'none');
     }
 }
 
@@ -62,7 +167,7 @@ function updateUI(user) {
 function mostrarEstado(mensaje, tipo) {
     const statusDiv = document.getElementById('status');
     if (!statusDiv) return;
-    
+
     statusDiv.textContent = mensaje;
     statusDiv.className = 'status ' + tipo;
     statusDiv.style.display = 'block';
@@ -71,39 +176,6 @@ function mostrarEstado(mensaje, tipo) {
         setTimeout(() => {
             statusDiv.style.display = 'none';
         }, 5000);
-    }
-}
-
-// Función para cargar materiales desde Firebase
-async function cargarMateriales() {
-    const selectMaterial = document.getElementById('objeto');
-    selectMaterial.innerHTML = '<option value="">Selecciona un material</option>';
-
-    try {
-        mostrarEstado('Cargando materiales...', 'loading');
-        const materialesRef = firebase.database().ref('materiales');
-        const snapshot = await materialesRef.once('value');
-        const materiales = snapshot.val();
-
-        if (materiales) {
-            Object.entries(materiales).forEach(([id, material]) => {
-                if (material.cantidad > 0) { // Solo mostrar materiales disponibles
-                    const option = document.createElement('option');
-                    option.value = id;
-                    option.textContent = `${material.nombre} (${material.cantidad} disponibles)`;
-                    selectMaterial.appendChild(option);
-                }
-            });
-            mostrarEstado('Materiales cargados exitosamente', 'success');
-        } else {
-            console.log('No hay materiales disponibles');
-            selectMaterial.innerHTML += '<option disabled>No hay materiales disponibles</option>';
-            mostrarEstado('No hay materiales disponibles', 'warning');
-        }
-    } catch (error) {
-        console.error('Error al cargar materiales:', error);
-        selectMaterial.innerHTML += '<option disabled>Error al cargar materiales</option>';
-        mostrarEstado('Error al cargar materiales', 'error');
     }
 }
 
@@ -239,10 +311,24 @@ async function solicitarPrestamo() {
 
 // Cerrar sesión
 function logout() {
-    firebase.auth().signOut().then(() => {
+    // Limpiar estados de autenticación
+    sessionStorage.removeItem('isAuthenticated');
+    sessionStorage.removeItem('userEmail');
+    sessionStorage.removeItem('userData');
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userData');
+
+    // Cerrar sesión en Firebase si hay usuario
+    if (firebase.auth().currentUser) {
+        firebase.auth().signOut().then(() => {
+            window.location.href = 'sistema-prestamos.html';
+        }).catch((error) => {
+            console.error('Error al cerrar sesión:', error);
+            mostrarEstado('Error al cerrar sesión', 'error');
+            window.location.href = 'sistema-prestamos.html';
+        });
+    } else {
         window.location.href = 'sistema-prestamos.html';
-    }).catch((error) => {
-        console.error('Error al cerrar sesión:', error);
-        mostrarEstado('Error al cerrar sesión', 'error');
-    });
+    }
 }
