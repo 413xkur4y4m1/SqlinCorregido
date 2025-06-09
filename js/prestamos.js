@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         window.auth.authState.user = user;
+        console.log('Updated window.auth.authState.user:', window.auth.authState.user); // Punto de depuración
         
         if (!isInitialized) {
             isInitialized = true;
@@ -182,6 +183,8 @@ function mostrarEstado(mensaje, tipo) {
 // Función para solicitar préstamo
 async function solicitarPrestamo() {
     const currentUser = window.auth?.authState?.user;
+    console.log('Current user in solicitarPrestamo:', currentUser); // Punto de depuración
+    
     if (!currentUser) {
         mostrarEstado('Por favor inicia sesión primero', 'error');
         return;
@@ -259,7 +262,7 @@ async function solicitarPrestamo() {
         const prestamoData = {
             id_prestamo: nuevoPrestamo.key,
             matricula_alumno: alumno.matricula,
-            nombre_alumno: `${alumno.nombre} ${alumno.apellido_p} ${alumno.apellido_m}`,
+            nombre_alumno: `${alumno.nombre} ${alumno.apellido_p} ${alumno.apellido_m}`.trim(),
             id_material: id_material,
             nombre_material: material.nombre,
             materia: materia,
