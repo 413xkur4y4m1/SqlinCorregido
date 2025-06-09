@@ -72,15 +72,6 @@ function waitForAuth() {
 // Clean up any stale auth states
 function cleanupAuthStates() {
     // Reset auth state on login page
-    if (window.location.pathname.endsWith('sistema-prestamos.html')) {
-        sessionStorage.removeItem('isAuthenticated');
-        sessionStorage.removeItem('userEmail');
-        sessionStorage.removeItem('userData');
-        localStorage.removeItem('isAuthenticated');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userData');
-        console.log('Auth states cleaned up');
-    }
 }
 
 // Helper function for retrying operations
