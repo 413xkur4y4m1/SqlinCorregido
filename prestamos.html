@@ -217,11 +217,11 @@
 
     <div class="form-content" style="display:none;">
       <form id="formPrestamo" onsubmit="event.preventDefault(); solicitarPrestamo();">
+        <!-- Reemplaza el select por este input y lista -->
         <div class="form-group">
-          <label for="objeto">Material:</label>
-          <select id="objeto" class="form-style" required>
-            <option value="">Selecciona un material</option>
-          </select>
+          <label for="buscadorMaterial">Buscar material:</label>
+          <input type="text" id="buscadorMaterial" class="form-style" placeholder="Escribe el nombre del material" autocomplete="off" required>
+          <ul id="sugerenciasMaterial" style="list-style:none; padding:0; margin:0; border:1px solid #ddd; border-radius:6px; max-height:150px; overflow-y:auto; display:none; background:#fff; position:absolute; z-index:10;"></ul>
         </div>
         <div class="form-group">
           <label for="materia">Materia:</label>
@@ -242,6 +242,79 @@
     </div>
   </div>
 
+  <script>
+    // filepath: c:\Users\UNIVERSIA 3\Documents\proyecto\SqlinCorregido\prestamos.html
+    // Función para normalizar texto (quita acentos, mayúsculas y espacios)
+    function normalizar(texto) {
+      return texto
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, "")
+        .toLowerCase();
+    }
 
+    // Cargar materiales desde Firebase
+    let materiales = [];
+    firebase.database().ref('materiales').once('value').then(snapshot => {
+      materiales = [];
+      snapshot.forEach(child => {
+        const mat = child.val();
+        mat._id = child.key;
+        materiales.push(mat);
+      });
+    });
+
+    // Filtrar y mostrar sugerencias
+    const buscador = document.getElementById('buscadorMaterial');
+    const sugerencias = document.getElementById('sugerenciasMaterial');
+    let materialSeleccionado = null;
+
+    buscador.addEventListener('input', function() {
+      const filtro = normalizar(buscador.value);
+      sugerencias.innerHTML = '';
+      if (!filtro) {
+        sugerencias.style.display = 'none';
+        materialSeleccionado = null;
+        return;
+      }
+      const resultados = materiales.filter(mat =>
+        normalizar(mat.nombre).includes(filtro)
+      );
+      if (resultados.length === 0) {
+        sugerencias.style.display = 'none';
+        materialSeleccionado = null;
+        return;
+      }
+      resultados.forEach(mat => {
+        const li = document.createElement('li');
+        li.textContent = mat.nombre;
+        li.style.padding = '8px';
+        li.style.cursor = 'pointer';
+        li.addEventListener('mousedown', () => {
+          buscador.value = mat.nombre;
+          sugerencias.style.display = 'none';
+          materialSeleccionado = mat;
+        });
+        sugerencias.appendChild(li);
+      });
+      sugerencias.style.display = 'block';
+    });
+
+    // Ocultar sugerencias al perder foco
+    buscador.addEventListener('blur', () => {
+      setTimeout(() => sugerencias.style.display = 'none', 100);
+    });
+
+    // Validar selección antes de enviar el formulario
+    document.getElementById('formPrestamo').addEventListener('submit', function(e) {
+      if (!materialSeleccionado || buscador.value !== materialSeleccionado.nombre) {
+        e.preventDefault();
+        alert('Selecciona un material válido de la lista.');
+        buscador.focus();
+        return false;
+      }
+      // Aquí puedes usar materialSeleccionado para tu lógica de préstamo
+    });
+  </script>
 </body>
 </html>

@@ -21,6 +21,34 @@
       line-height: 1.2;
     }
     #log { background: #f4f4f4; padding: 10px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; font-size: 0.85rem; }
+    /* Estilos para el modal */
+    #modalEditar {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    #modalEditar > div {
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      min-width: 320px;
+      max-width: 90vw;
+    }
+    #tablaEditar {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #tablaEditar th, #tablaEditar td {
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
   </style>
 </head>
 <body>
@@ -41,6 +69,27 @@
   <h2>Bulk Upload</h2>
   <button id="bulkBtn">Subir Lista Completa</button>
   <div id="log"></div>
+
+  <!-- Modal de edición -->
+  <div id="modalEditar" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:20px; border-radius:10px; min-width:320px; max-width:90vw;">
+      <h2>Editar Material</h2>
+      <table id="tablaEditar" style="width:100%; border-collapse:collapse;">
+        <tr><th>Campo</th><th>Valor</th></tr>
+        <tr><td>Nombre</td><td><input id="edit_nombre" style="width:100%"></td></tr>
+        <tr><td>Marca</td><td><input id="edit_marca" style="width:100%"></td></tr>
+        <tr><td>Año compra</td><td><input id="edit_anio" type="number" style="width:100%"></td></tr>
+        <tr><td>Cantidad</td><td><input id="edit_cantidad" type="number" style="width:100%"></td></tr>
+        <tr><td>Precio unitario</td><td><input id="edit_precio" type="number" step="0.01" style="width:100%"></td></tr>
+        <tr><td>Proveedor</td><td><input id="edit_proveedor" style="width:100%"></td></tr>
+        <tr><td>Tipo</td><td><input id="edit_tipo" style="width:100%"></td></tr>
+      </table>
+      <div style="margin-top:10px; text-align:right;">
+        <button onclick="guardarEdicion()">Guardar</button>
+        <button onclick="cerrarModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     // Firebase config
@@ -115,7 +164,9 @@
         const div = document.createElement('div');
         div.className = 'material';
         div.innerHTML = `
-          <strong>${data.nombre}</strong><br>
+          <strong>${data.nombre}</strong>
+          <button title="Editar" style="float:right; background:none; border:none; cursor:pointer; font-size:1.1em;" onclick='abrirModalEditar("${key}", ${JSON.stringify(data).replace(/'/g,"&#39;")})'>✏️</button>
+          <button title="Eliminar" style="float:right; background:none; border:none; cursor:pointer; font-size:1.1em; color:#c00;" onclick='eliminarMaterial("${key}", "${data.nombre.replace(/"/g, '&quot;')}")'>🗑️</button><br>
           <small>${data.marca} | Año ${data.anio_compra}</small><br>
           Cant: ${data.cantidad} | U: $${data.precio_unitario}<br>
           Aj: $${data.precio_ajustado}<br>
@@ -132,6 +183,52 @@
       const nueva = Math.max(0, (snap.val().cantidad || 0) + delta);
       await ref.update({ cantidad: nueva });
       mostrarMateriales();
+    }
+
+    // Edit material
+    let materialEditandoKey = null;
+
+    function abrirModalEditar(key, data) {
+      materialEditandoKey = key;
+      document.getElementById('edit_nombre').value = data.nombre || '';
+      document.getElementById('edit_marca').value = data.marca || '';
+      document.getElementById('edit_anio').value = data.anio_compra || '';
+      document.getElementById('edit_cantidad').value = data.cantidad || '';
+      document.getElementById('edit_precio').value = data.precio_unitario || '';
+      document.getElementById('edit_proveedor').value = data.proveedor || '';
+      document.getElementById('edit_tipo').value = data.tipo || '';
+      document.getElementById('modalEditar').style.display = 'flex';
+    }
+
+    function cerrarModal() {
+      document.getElementById('modalEditar').style.display = 'none';
+      materialEditandoKey = null;
+    }
+
+    async function guardarEdicion() {
+      if (!materialEditandoKey) return;
+      const nombre = document.getElementById('edit_nombre').value;
+      const marca = document.getElementById('edit_marca').value;
+      const anio_compra = parseInt(document.getElementById('edit_anio').value) || new Date().getFullYear();
+      const cantidad = parseInt(document.getElementById('edit_cantidad').value) || 1;
+      const precio_unitario = parseFloat(document.getElementById('edit_precio').value) || 0;
+      const proveedor = document.getElementById('edit_proveedor').value;
+      const tipo = document.getElementById('edit_tipo').value;
+      const años = new Date().getFullYear() - anio_compra;
+      const factor = Math.pow(1.04, años);
+      const precio_ajustado = Number((precio_unitario * factor).toFixed(2));
+      await db.ref('materiales/' + materialEditandoKey).update({
+        nombre, marca, anio_compra, cantidad, precio_unitario, precio_ajustado, proveedor, tipo
+      });
+      cerrarModal();
+      mostrarMateriales();
+    }
+
+    async function eliminarMaterial(key, nombre) {
+      if (confirm(`¿Estás seguro que deseas eliminar "${nombre}"? Esta acción no se puede deshacer.`)) {
+        await db.ref('materiales/' + key).remove();
+        mostrarMateriales();
+      }
     }
 
     document.getElementById('addBtn').addEventListener('click', agregarMaterial);
